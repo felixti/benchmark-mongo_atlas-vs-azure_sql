@@ -1,0 +1,47 @@
+networks:
+  bench_network:
+    driver: bridge
+
+services:
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bench_mssql
+    networks:
+      - bench_network
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - ACCEPT_EULA=Y
+      - PID=Developer
+      - SA_PASSWORD=${MSSQL_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - "./seed/mssql:/scripts"
+    command:
+      - /bin/bash
+      - -c
+      - |
+        /opt/mssql/bin/sqlservr &
+        sleep 45
+        /opt/mssql-tools/bin/sqlcmd -U sa -P ${MSSQL_PASSWORD} -C -l 30 -e -i /scripts/init.sql
+        sleep infinity
+
+  mongodb:
+    image: mongo:7
+    container_name: bench_mongodb
+    networks:
+      - bench_network
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - "./seed/mongo/init.js:/docker-entrypoint-initdb.d/init.js"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+
+volumes:
+  mssql_data:
+  mongodb_data:
